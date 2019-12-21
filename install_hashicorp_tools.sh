@@ -4,6 +4,7 @@
 BASE_URL="https://releases.hashicorp.com"
 DOWNLOAD_DIR=$HOME/Downloads
 BIN_DIR=$HOME/bin
+STABLE="true"
 
 check_installed_version(){
     installed_version=$($1 version | head -n1 | awk '{if ($2 ~ /v.*/){print $2}else{print $NF}}' | tr -d 'v')
@@ -11,8 +12,22 @@ check_installed_version(){
 }
 
 check_latest_version(){
-     latest_version=$(curl -s ${BASE_URL}/$1/ | xmllint --html --xpath '//body/ul/li[2]/a/text()' - 2>/dev/null | cut -d_ -f2)
-     echo "$latest_version"
+    if [[ "$STABLE" == "true" ]];then
+        local ITEMS=$(curl -sL ${BASE_URL}/$1/ | xmllint --html --xpath 'count(//body/ul/li)' - 2>/dev/null)
+        local COUNT=2
+        local FOUND=0
+        while [ "$COUNT" -lt $ITEMS ] && [ "$FOUND" -eq 0 ];do
+            local VERSION=$(curl -s ${BASE_URL}/$1/ | xmllint --html --xpath "//body/ul/li[$COUNT]/a/text()" - 2>/dev/null | cut -d_ -f2)
+            if echo "$VERSION" | grep -Ev "rc|alpha|beta";then
+                FOUND=1
+                latest_version=$VERSION
+            fi
+            COUNT=$((COUNT+1))
+        done
+    else
+        latest_version=$(curl -s ${BASE_URL}/$1/ | xmllint --html --xpath '//body/ul/li[2]/a/text()' - 2>/dev/null | cut -d_ -f2)
+    fi
+    echo "$latest_version"
 }
 
 download() {
